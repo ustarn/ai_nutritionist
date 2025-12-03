@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* 设置所有输入框的 placeholder 样式 */
+input::placeholder {
+    /* 颜色变淡，例如使用 text-gray-400 */
+    @apply text-gray-400 font-normal;
+}
