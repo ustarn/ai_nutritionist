@@ -134,6 +134,32 @@ export async function getHealthAssessment() {
   return data;
 }
 
+// ---- 体重相关 ----
+export async function createWeightLog({ weight, logDate, note }) {
+  return await apiRequest("/api/weight-logs", {
+    method: "POST",
+    body: JSON.stringify({ weight, logDate, note }),
+  });
+}
+
+export async function getWeightLogs({ startDate, endDate, limit } = {}) {
+  const params = new URLSearchParams();
+  if (startDate) params.append("startDate", startDate);
+  if (endDate) params.append("endDate", endDate);
+  if (limit) params.append("limit", limit);
+  const query = params.toString();
+  return await apiRequest(`/api/weight-logs${query ? `?${query}` : ""}`);
+}
+
+export async function getWeightSummary() {
+  return await apiRequest("/api/weight/summary");
+}
+
+// 连续打卡
+export async function getStreak() {
+  return await apiRequest("/api/streak");
+}
+
 // 搜索食物
 export async function searchFoods(query, category) {
   const params = new URLSearchParams();

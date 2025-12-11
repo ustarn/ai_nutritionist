@@ -20,6 +20,7 @@ export default function App() {
   const [profileForm, setProfileForm] = useState({
     height: "",
     weight: "",
+    targetWeight: "",
     gender: "male",
     age: "",
     activityLevel: "sedentary",
@@ -54,6 +55,7 @@ export default function App() {
       setProfileForm({
         height: profile.height ?? "",
         weight: profile.weight ?? "",
+        targetWeight: profile.targetWeight ?? "",
         gender: profile.gender || "male",
         age: profile.age ?? "",
         activityLevel: profile.activityLevel || "sedentary",
@@ -202,6 +204,32 @@ export default function App() {
                     placeholder="65"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    体重 (kg)
+                  </label>
+                  <input
+                    type="number"
+                    name="weight"
+                    value={profileForm.weight}
+                    onChange={handleProfileInputChange}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="65"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  目标体重 (kg)
+                </label>
+                <input
+                  type="number"
+                  name="targetWeight"
+                  value={profileForm.targetWeight}
+                  onChange={handleProfileInputChange}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="60"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

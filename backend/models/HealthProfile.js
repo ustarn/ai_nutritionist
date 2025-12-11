@@ -9,6 +9,8 @@ const healthProfileSchema = new mongoose.Schema({
     },
     height: Number,
     weight: Number,
+    // 用户设定的目标体重（kg）
+    targetWeight: Number,
     gender: {
         type: String,
         enum: ['male', 'female', 'other']

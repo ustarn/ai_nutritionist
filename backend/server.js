@@ -37,6 +37,7 @@ app.use((req, res, next) => {
 // ========== 导入模型 ==========
 const FoodLog = require("./models/FoodLog");
 const HealthProfile = require("./models/HealthProfile");
+const WeightLog = require("./models/WeightLog");
 const Food = require("./models/Food");
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
@@ -261,6 +262,7 @@ app.get("/api/health-profile", authenticateToken, async (req, res) => {
         userId: req.user.userId,
         height: null,
         weight: null,
+        targetWeight: null,
         gender: "male",
         age: null,
         activityLevel: "sedentary",
@@ -280,7 +282,8 @@ app.get("/api/health-profile", authenticateToken, async (req, res) => {
 // 更新/创建当前用户的健康档案
 app.put("/api/health-profile", authenticateToken, async (req, res) => {
   try {
-    const { height, weight, gender, age, activityLevel, goal } = req.body;
+    const { height, weight, gender, age, activityLevel, goal, targetWeight } =
+      req.body;
 
     if (!height || !weight || !age) {
       return res.status(400).json({ error: "请填写身高、体重和年龄" });
@@ -326,6 +329,9 @@ app.put("/api/health-profile", authenticateToken, async (req, res) => {
       age: parseInt(age),
       activityLevel,
       goal,
+      ...(targetWeight !== undefined && {
+        targetWeight: parseFloat(targetWeight),
+      }),
       targetCalories,
       updatedAt: new Date(),
     };
@@ -345,6 +351,111 @@ app.put("/api/health-profile", authenticateToken, async (req, res) => {
     res.json(profile);
   } catch (error) {
     console.error("更新健康档案错误:", error);
+    res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+// ========== 体重记录 ==========
+// 创建/更新当天体重记录
+app.post("/api/weight-logs", authenticateToken, async (req, res) => {
+  try {
+    const { weight, logDate, note } = req.body;
+    if (weight === undefined) {
+      return res.status(400).json({ error: "请输入体重" });
+    }
+    const d = logDate ? new Date(logDate) : new Date();
+    d.setHours(0, 0, 0, 0);
+
+    const log = await WeightLog.findOneAndUpdate(
+      { userId: req.user.userId, logDate: d },
+      {
+        userId: req.user.userId,
+        weight: parseFloat(weight),
+        logDate: d,
+        note,
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    // 同步更新健康档案中的当前体重
+    await HealthProfile.findOneAndUpdate(
+      { userId: req.user.userId },
+      { userId: req.user.userId, weight: parseFloat(weight), updatedAt: new Date() },
+      { upsert: true }
+    );
+
+    res.status(201).json(log);
+  } catch (error) {
+    console.error("创建体重记录错误:", error);
+    res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+// 获取体重记录（默认最近30天，可按日期范围）
+app.get("/api/weight-logs", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate, limit = 30 } = req.query;
+    const query = { userId: req.user.userId };
+    if (startDate || endDate) {
+      query.logDate = {};
+      if (startDate) query.logDate.$gte = new Date(startDate);
+      if (endDate) {
+        const d = new Date(endDate);
+        d.setHours(23, 59, 59, 999);
+        query.logDate.$lte = d;
+      }
+    }
+    const logs = await WeightLog.find(query)
+      .sort({ logDate: -1 })
+      .limit(parseInt(limit, 10));
+    res.json(logs);
+  } catch (error) {
+    console.error("获取体重记录错误:", error);
+    res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+// 体重进度汇总
+app.get("/api/weight/summary", authenticateToken, async (req, res) => {
+  try {
+    const profile = await HealthProfile.findOne({ userId: req.user.userId });
+    const latestLog = await WeightLog.findOne({ userId: req.user.userId }).sort({
+      logDate: -1,
+    });
+    const firstLog = await WeightLog.findOne({ userId: req.user.userId }).sort({
+      logDate: 1,
+    });
+
+    const currentWeight = latestLog?.weight ?? profile?.weight ?? null;
+    const targetWeight = profile?.targetWeight ?? null;
+    const startWeight = firstLog?.weight ?? profile?.weight ?? null;
+
+    // 近 7 天变化
+    const last7 = await WeightLog.find({ userId: req.user.userId })
+      .sort({ logDate: -1 })
+      .limit(7);
+    const recentChange =
+      last7.length >= 2 ? last7[0].weight - last7[last7.length - 1].weight : 0;
+
+    // 进度：有起始体重 + 目标体重才计算
+    let progressPct = null;
+    if (targetWeight && startWeight && currentWeight) {
+      const totalDelta = startWeight - targetWeight;
+      const doneDelta = startWeight - currentWeight;
+      progressPct =
+        totalDelta !== 0 ? Math.min(1, Math.max(0, doneDelta / totalDelta)) : null;
+    }
+
+    res.json({
+      currentWeight,
+      targetWeight,
+      startWeight,
+      latestLogDate: latestLog?.logDate ?? null,
+      recentChange,
+      progressPct,
+    });
+  } catch (error) {
+    console.error("获取体重汇总错误:", error);
     res.status(500).json({ error: "服务器错误" });
   }
 });
@@ -504,6 +615,48 @@ app.get("/api/nutrition/today", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("获取今日营养摄入错误:", error);
+    res.status(500).json({ error: "服务器错误" });
+  }
+});
+
+// 连续打卡天数（基于有饮食记录的自然日）
+app.get("/api/streak", authenticateToken, async (req, res) => {
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 60);
+    since.setHours(0, 0, 0, 0);
+
+    const logs = await FoodLog.find({
+      userId: req.user.userId,
+      loggedAt: { $gte: since },
+    })
+      .select("loggedAt")
+      .sort({ loggedAt: -1 })
+      .lean();
+
+    const daySet = new Set();
+    logs.forEach((l) => {
+      const d = new Date(l.loggedAt);
+      d.setHours(0, 0, 0, 0);
+      daySet.add(d.getTime());
+    });
+
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 60; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      if (daySet.has(d.getTime())) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+
+    res.json({ streakDays: streak });
+  } catch (error) {
+    console.error("获取连续打卡错误:", error);
     res.status(500).json({ error: "服务器错误" });
   }
 });
@@ -791,7 +944,8 @@ app.get("/api/foods/search", authenticateToken, async (req, res) => {
       query.category = category;
     }
 
-    const foods = await Food.find(query).limit(50).sort({ name: 1 });
+    // 显示最新创建的在前，扩大默认返回条数，避免 50 条截断看不到新导入的食物
+    const foods = await Food.find(query).sort({ createdAt: -1 }).limit(200);
     res.json(foods);
   } catch (error) {
     console.error("搜索食物错误:", error);

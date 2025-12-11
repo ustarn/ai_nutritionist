@@ -1,12 +1,18 @@
 // src/pages/Profile.jsx - 健康档案页
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
-import { getHealthProfile, saveHealthProfile } from '../utils/api';
+import {
+    getHealthProfile,
+    saveHealthProfile,
+    getWeightLogs,
+    createWeightLog
+} from '../utils/api';
 
 export default function Profile({ user, onNavigate }) {
     const [formData, setFormData] = useState({
         height: '',
         weight: '',
+        targetWeight: '',
         gender: 'male',
         age: '',
         activityLevel: 'sedentary',
@@ -16,6 +22,10 @@ export default function Profile({ user, onNavigate }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editing, setEditing] = useState(false);
+    const [weightLogs, setWeightLogs] = useState([]);
+    const [weightInput, setWeightInput] = useState('');
+    const [weightDate, setWeightDate] = useState(() => new Date().toISOString().slice(0, 10));
+    const [savingWeight, setSavingWeight] = useState(false);
 
     // 加载用户健康档案
     useEffect(() => {
@@ -25,6 +35,7 @@ export default function Profile({ user, onNavigate }) {
                 setFormData({
                     height: profile.height ?? '',
                     weight: profile.weight ?? '',
+                    targetWeight: profile.targetWeight ?? '',
                     gender: profile.gender || 'male',
                     age: profile.age ?? '',
                     activityLevel: profile.activityLevel || 'sedentary',
@@ -43,6 +54,14 @@ export default function Profile({ user, onNavigate }) {
                                 : '维持'
                     });
                 }
+
+                // 最近 7 天体重记录
+                try {
+                    const logs = await getWeightLogs({ limit: 30 });
+                    setWeightLogs(logs);
+                } catch (e) {
+                    console.warn('加载体重记录失败', e);
+                }
             } catch (error) {
                 console.error('加载健康档案失败:', error);
             } finally {
@@ -60,7 +79,7 @@ export default function Profile({ user, onNavigate }) {
     };
 
     const handleSaveProfile = async () => {
-        const { height, weight, gender, age, activityLevel, goal } = formData;
+        const { height, weight, gender, age, activityLevel, goal, targetWeight } = formData;
 
         if (!height || !weight || !age) {
             alert('请先填写身高、体重和年龄');
@@ -75,7 +94,8 @@ export default function Profile({ user, onNavigate }) {
                 gender,
                 age,
                 activityLevel,
-                goal
+                goal,
+                targetWeight
             });
 
             // 根据后端返回的 targetCalories 同步结果
@@ -215,6 +235,22 @@ export default function Profile({ user, onNavigate }) {
                             />
                         </div>
 
+                        {/* 目标体重 */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                目标体重 (kg)
+                            </label>
+                            <input
+                                type="number"
+                                name="targetWeight"
+                                value={formData.targetWeight}
+                                onChange={handleChange}
+                                disabled={!editing}
+                                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${!editing ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                                placeholder="例如: 60"
+                            />
+                        </div>
+
                         {/* 性别 */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -314,6 +350,100 @@ export default function Profile({ user, onNavigate }) {
                             </div>
                         </>
                     )}
+
+                    {/* 每日体重记录 */}
+                    <div className="mt-8 p-6 bg-white rounded-xl shadow border border-green-100">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-gray-800">📈 每日体重记录</h3>
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    type="date"
+                                    value={weightDate}
+                                    onChange={(e) => setWeightDate(e.target.value)}
+                                    className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                />
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    value={weightInput}
+                                    onChange={(e) => setWeightInput(e.target.value)}
+                                    placeholder="今日体重 (kg)"
+                                    className="w-32 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        if (!weightInput) return alert('请输入体重');
+                                        setSavingWeight(true);
+                                        try {
+                                            await createWeightLog({ weight: weightInput, logDate: weightDate });
+                                            const logs = await getWeightLogs({ limit: 30 });
+                                            setWeightLogs(logs);
+                                            setFormData((p) => ({ ...p, weight: weightInput }));
+                                            alert('✅ 体重已记录');
+                                        } catch (e) {
+                                            alert('记录失败: ' + (e.message || '请稍后再试'));
+                                        } finally {
+                                            setSavingWeight(false);
+                                            setWeightInput('');
+                                            setWeightDate(new Date().toISOString().slice(0, 10));
+                                        }
+                                    }}
+                                    disabled={savingWeight}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-70"
+                                >
+                                    {savingWeight ? '保存中...' : '保存'}
+                                </button>
+                            </div>
+                        </div>
+                        {weightLogs.length === 0 ? (
+                            <p className="text-gray-500 text-sm">还没有体重记录，先记录今天吧。</p>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="w-full">
+                                    {/* 简易折线图 */}
+                                    <svg viewBox="0 0 300 120" className="w-full h-32 bg-green-50 rounded-lg border border-green-100">
+                                        {(() => {
+                                            const data = [...weightLogs].reverse(); // 升序
+                                            const weights = data.map(d => d.weight);
+                                            const minW = Math.min(...weights);
+                                            const maxW = Math.max(...weights);
+                                            const range = maxW - minW || 1;
+                                            const points = data.map((d, idx) => {
+                                                const x = (idx / Math.max(1, data.length - 1)) * 300;
+                                                const y = 110 - ((d.weight - minW) / range) * 100;
+                                                return `${x},${y}`;
+                                            });
+                                            return (
+                                                <>
+                                                    <polyline
+                                                        fill="none"
+                                                        stroke="#16a34a"
+                                                        strokeWidth="2"
+                                                        points={points.join(" ")}
+                                                    />
+                                                    {points.map((p, idx) => {
+                                                        const [x, y] = p.split(",").map(Number);
+                                                        return (
+                                                            <circle key={idx} cx={x} cy={y} r="3" fill="#16a34a" />
+                                                        );
+                                                    })}
+                                                </>
+                                            );
+                                        })()}
+                                    </svg>
+                                </div>
+                                {weightLogs.map((log) => (
+                                    <div
+                                        key={log._id}
+                                        className="flex items-center justify-between text-sm text-gray-700 bg-green-50 px-3 py-2 rounded-lg"
+                                    >
+                                        <span>{new Date(log.logDate).toLocaleDateString()}</span>
+                                        <span className="font-semibold">{log.weight} kg</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {/* 计算结果 */}
                     {result && (

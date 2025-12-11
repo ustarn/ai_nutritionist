@@ -1,13 +1,18 @@
 // src/pages/Dashboard.jsx - 用户主页
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
-import { getTodayNutrition, getHealthAssessment } from "../utils/api";
+import {
+  getTodayNutrition,
+  getHealthAssessment,
+  getStreak,
+} from "../utils/api";
 
 export default function Dashboard({ user, onNavigate }) {
   const [nutrition, setNutrition] = useState(null);
   const [assessment, setAssessment] = useState(null);
   const [loadingNutrition, setLoadingNutrition] = useState(true);
   const [loadingAssessment, setLoadingAssessment] = useState(true);
+  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
     // 先尽快加载今日营养摄入并展示，不要被 AI 评估阻塞
@@ -34,8 +39,18 @@ export default function Dashboard({ user, onNavigate }) {
       }
     };
 
+    const fetchStreak = async () => {
+      try {
+        const data = await getStreak();
+        setStreak(data.streakDays || 0);
+      } catch (error) {
+        console.error("获取连续打卡失败:", error);
+      }
+    };
+
     fetchNutrition();
     fetchAssessment();
+    fetchStreak();
   }, []);
   const features = [
     {
@@ -322,7 +337,7 @@ export default function Dashboard({ user, onNavigate }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm">连续打卡</p>
-                <p className="text-2xl font-bold text-gray-800">0 天</p>
+                <p className="text-2xl font-bold text-gray-800">{streak} 天</p>
               </div>
               <div className="text-4xl">📅</div>
             </div>
