@@ -177,6 +177,7 @@ export default function App() {
               为了给您提供准确的营养建议，请先填写基本身体数据。
             </p>
             <form className="space-y-4" onSubmit={handleProfileSubmit}>
+              {/* 第一行：身高、体重 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
@@ -204,34 +205,23 @@ export default function App() {
                     placeholder="65"
                   />
                 </div>
+              </div>
+
+              {/* 第二行：目标体重、年龄 */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
-                    体重 (kg)
+                    目标体重 (kg)
                   </label>
                   <input
                     type="number"
-                    name="weight"
-                    value={profileForm.weight}
+                    name="targetWeight"
+                    value={profileForm.targetWeight}
                     onChange={handleProfileInputChange}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder="65"
+                    placeholder="60"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">
-                  目标体重 (kg)
-                </label>
-                <input
-                  type="number"
-                  name="targetWeight"
-                  value={profileForm.targetWeight}
-                  onChange={handleProfileInputChange}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                  placeholder="60"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
                     年龄
@@ -245,6 +235,10 @@ export default function App() {
                     placeholder="25"
                   />
                 </div>
+              </div>
+
+              {/* 第三行：性别、日常活动 */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
                     性别
@@ -257,11 +251,8 @@ export default function App() {
                   >
                     <option value="male">男</option>
                     <option value="female">女</option>
-                    <option value="other">其他</option>
                   </select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">
                     日常活动
@@ -278,21 +269,23 @@ export default function App() {
                     <option value="heavy">重度 (每周6-7次)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">
-                    健康目标
-                  </label>
-                  <select
-                    name="goal"
-                    value={profileForm.goal}
-                    onChange={handleProfileInputChange}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
-                  >
-                    <option value="lose_weight">减脂</option>
-                    <option value="gain_muscle">增肌</option>
-                    <option value="maintain">维持</option>
-                  </select>
-                </div>
+              </div>
+
+              {/* 第四行：健康目标 */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  健康目标
+                </label>
+                <select
+                  name="goal"
+                  value={profileForm.goal}
+                  onChange={handleProfileInputChange}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="lose_weight">减脂</option>
+                  <option value="gain_muscle">增肌</option>
+                  <option value="maintain">维持</option>
+                </select>
               </div>
               <button
                 type="submit"
