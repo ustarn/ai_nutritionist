@@ -86,6 +86,28 @@ export default function Profile({ user, onNavigate }) {
             return;
         }
 
+        const h = parseFloat(height);
+        const w = parseFloat(weight);
+        const a = parseInt(age, 10);
+        const tw = targetWeight ? parseFloat(targetWeight) : undefined;
+
+        if (Number.isNaN(h) || h <= 0 || h > 260) {
+            alert('身高数值不合法，请输入 50-260 cm');
+            return;
+        }
+        if (Number.isNaN(w) || w <= 0 || w > 400) {
+            alert('体重数值不合法，请输入 10-400 kg');
+            return;
+        }
+        if (Number.isNaN(a) || a <= 0 || a > 120) {
+            alert('年龄数值不合法，请输入 1-120 岁');
+            return;
+        }
+        if (tw !== undefined && (Number.isNaN(tw) || tw <= 0 || tw > 400)) {
+            alert('目标体重数值不合法，请输入 10-400 kg');
+            return;
+        }
+
         setSaving(true);
         try {
             const saved = await saveHealthProfile({
@@ -128,6 +150,23 @@ export default function Profile({ user, onNavigate }) {
 
         if (!height || !weight || !age) {
             alert('请填写完整信息!');
+            return;
+        }
+
+        const h = parseFloat(height);
+        const w = parseFloat(weight);
+        const a = parseInt(age, 10);
+
+        if (Number.isNaN(h) || h <= 0 || h > 260) {
+            alert('身高数值不合法，请输入 50-260 cm');
+            return;
+        }
+        if (Number.isNaN(w) || w <= 0 || w > 400) {
+            alert('体重数值不合法，请输入 10-400 kg');
+            return;
+        }
+        if (Number.isNaN(a) || a <= 0 || a > 120) {
+            alert('年龄数值不合法，请输入 1-120 岁');
             return;
         }
 
@@ -214,6 +253,8 @@ export default function Profile({ user, onNavigate }) {
                                 value={formData.height}
                                 onChange={handleChange}
                                 disabled={!editing}
+                                min="50"
+                                max="260"
                                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${!editing ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                                 placeholder="例如: 170"
                             />
@@ -230,6 +271,8 @@ export default function Profile({ user, onNavigate }) {
                                 value={formData.weight}
                                 onChange={handleChange}
                                 disabled={!editing}
+                                min="10"
+                                max="400"
                                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${!editing ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                                 placeholder="例如: 65"
                             />
@@ -246,6 +289,8 @@ export default function Profile({ user, onNavigate }) {
                                 value={formData.targetWeight}
                                 onChange={handleChange}
                                 disabled={!editing}
+                                min="10"
+                                max="400"
                                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${!editing ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                                 placeholder="例如: 60"
                             />
@@ -279,6 +324,8 @@ export default function Profile({ user, onNavigate }) {
                                 value={formData.age}
                                 onChange={handleChange}
                                 disabled={!editing}
+                                min="1"
+                                max="120"
                                 className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${!editing ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                                 placeholder="例如: 25"
                             />
@@ -368,6 +415,8 @@ export default function Profile({ user, onNavigate }) {
                                     value={weightInput}
                                     onChange={(e) => setWeightInput(e.target.value)}
                                     placeholder="今日体重 (kg)"
+                                    min="10"
+                                    max="400"
                                     className="w-32 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
                                 />
                                 <button

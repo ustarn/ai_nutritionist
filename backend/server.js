@@ -1240,20 +1240,45 @@ app.put("/api/health-profile", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "请填写身高、体重和年龄" });
     }
 
+    // 基础数值校验，防止负数或异常值
+    const parsedHeight = parseFloat(height);
+    const parsedWeight = parseFloat(weight);
+    const parsedAge = parseInt(age, 10);
+    const parsedTargetWeight =
+      targetWeight !== undefined && targetWeight !== null
+        ? parseFloat(targetWeight)
+        : undefined;
+
+    if (Number.isNaN(parsedHeight) || parsedHeight <= 0 || parsedHeight > 260) {
+      return res
+        .status(400)
+        .json({ error: "身高数值不合法，请输入 50-260 cm 范围" });
+    }
+    if (Number.isNaN(parsedWeight) || parsedWeight <= 0 || parsedWeight > 400) {
+      return res
+        .status(400)
+        .json({ error: "体重数值不合法，请输入 10-400 kg 范围" });
+    }
+    if (Number.isNaN(parsedAge) || parsedAge <= 0 || parsedAge > 120) {
+      return res.status(400).json({ error: "年龄数值不合法，请输入 1-120 岁" });
+    }
+    if (
+      parsedTargetWeight !== undefined &&
+      (Number.isNaN(parsedTargetWeight) ||
+        parsedTargetWeight <= 0 ||
+        parsedTargetWeight > 400)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "目标体重数值不合法，请输入 10-400 kg 范围" });
+    }
+
     // 计算 TDEE 和推荐目标热量（与前端 Profile 页面保持一致的公式）
     let bmr;
     if (gender === "male") {
-      bmr =
-        10 * parseFloat(weight) +
-        6.25 * parseFloat(height) -
-        5 * parseInt(age) +
-        5;
+      bmr = 10 * parsedWeight + 6.25 * parsedHeight - 5 * parsedAge + 5;
     } else {
-      bmr =
-        10 * parseFloat(weight) +
-        6.25 * parseFloat(height) -
-        5 * parseInt(age) -
-        161;
+      bmr = 10 * parsedWeight + 6.25 * parsedHeight - 5 * parsedAge - 161;
     }
 
     const activityMultipliers = {
@@ -1274,14 +1299,14 @@ app.put("/api/health-profile", authenticateToken, async (req, res) => {
     const targetCalories = Math.round(tdee);
 
     const update = {
-      height: parseFloat(height),
-      weight: parseFloat(weight),
+      height: parsedHeight,
+      weight: parsedWeight,
       gender,
-      age: parseInt(age),
+      age: parsedAge,
       activityLevel,
       goal,
       ...(targetWeight !== undefined && {
-        targetWeight: parseFloat(targetWeight),
+        targetWeight: parsedTargetWeight,
       }),
       targetCalories,
       updatedAt: new Date(),
@@ -1314,6 +1339,12 @@ app.post("/api/weight-logs", authenticateToken, async (req, res) => {
     if (weight === undefined) {
       return res.status(400).json({ error: "请输入体重" });
     }
+    const parsedWeight = parseFloat(weight);
+    if (Number.isNaN(parsedWeight) || parsedWeight <= 0 || parsedWeight > 400) {
+      return res
+        .status(400)
+        .json({ error: "体重数值不合法，请输入 10-400 kg 范围" });
+    }
     const d = logDate ? new Date(logDate) : new Date();
     d.setHours(0, 0, 0, 0);
 
@@ -1321,7 +1352,7 @@ app.post("/api/weight-logs", authenticateToken, async (req, res) => {
       { userId: req.user.userId, logDate: d },
       {
         userId: req.user.userId,
-        weight: parseFloat(weight),
+        weight: parsedWeight,
         logDate: d,
         note,
       },
@@ -2463,16 +2494,20 @@ app.post("/api/ai/calculate-nutrition", authenticateToken, async (req, res) => {
   }
 });
 
-// 启动服务器
+// 启动服务器（测试环境不监听端口，便于 supertest 直接使用 app）
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 服务器运行在 http://localhost:${PORT}`);
-  if (!API_KEY) {
-    console.warn("⚠️  未检测到AI API密钥，AI营养计算功能将不可用");
-    console.warn("   请在.env文件中设置 API_KEY");
-  } else {
-    console.log(`✅ AI API配置成功`);
-    console.log(`   API端点: ${AI_API_BASE_URL}`);
-    console.log(`   使用密钥: API_KEY`);
-  }
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`🚀 服务器运行在 http://localhost:${PORT}`);
+    if (!API_KEY) {
+      console.warn("⚠️  未检测到AI API密钥，AI营养计算功能将不可用");
+      console.warn("   请在.env文件中设置 API_KEY");
+    } else {
+      console.log(`✅ AI API配置成功`);
+      console.log(`   API端点: ${AI_API_BASE_URL}`);
+      console.log(`   使用密钥: API_KEY`);
+    }
+  });
+}
+
+module.exports = app;
